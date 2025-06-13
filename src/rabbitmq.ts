@@ -7,7 +7,7 @@ type RabbitMQContext = {
   channel: Channel | null;
 };
 
-type RabbitMQListener = {
+export type RabbitMQListener = {
   connect: () => Promise<void>;
   setupQueuesAndBindings: () => Promise<void>;
   close: () => Promise<void>;
