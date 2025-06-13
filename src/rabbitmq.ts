@@ -116,14 +116,15 @@ export function createRabbitMQListener(config: Config): RabbitMQListener {
     try {
       if (context.channel) {
         await context.channel.close();
+        context.channel = null;
       }
       if (context.connection) {
         await context.connection.close();
+        context.connection = null;
       }
       console.log('Disconnected from RabbitMQ');
     } catch (error) {
       console.error('Error closing RabbitMQ connection:', error);
-      throw error;
     }
   };
 

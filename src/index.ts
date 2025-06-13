@@ -7,13 +7,31 @@ async function main() {
     const listener = createRabbitMQListener(config);
 
     // Handle process termination
-    async function handleShutdown() {
-      console.log('Closing...');
-      await listener.close();
-      process.exit(0);
+    let isShuttingDown = false;
+    async function handleShutdown(signal: string) {
+      if (isShuttingDown) {
+        console.log('Shutdown already in progress...');
+        return;
+      }
+      isShuttingDown = true;
+      console.log(`Received ${signal}. Closing...`);
+
+      try {
+        await Promise.race([
+          listener.close(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Shutdown timeout')), 5000)),
+        ]);
+        console.log('Graceful shutdown completed');
+        process.exit(0);
+      } catch (error) {
+        console.error('Error during shutdown:', error);
+        process.exit(1);
+      }
     }
 
-    process.on('SIGINT', handleShutdown).on('SIGTERM', handleShutdown);
+    process
+      .on('SIGINT', () => handleShutdown('SIGINT'))
+      .on('SIGTERM', () => handleShutdown('SIGTERM'));
 
     // Connect and setup queues
     await listener.connect();
