@@ -1,6 +1,7 @@
+import type { ConsumeMessage } from 'amqplib';
 import type { RabbitMQListener } from './rabbitmq';
 
-let isShuttingDown = false;
+export let isShuttingDown = false;
 export async function handleShutdown(listener: RabbitMQListener, signal: string) {
   if (isShuttingDown) {
     console.log('Shutdown already in progress...');
@@ -20,4 +21,11 @@ export async function handleShutdown(listener: RabbitMQListener, signal: string)
     console.error('Error during shutdown:', error);
     process.exit(1);
   }
+}
+
+export function handleMessage(queueName: string, msg: ConsumeMessage) {
+  console.log(`[${queueName}] Received message:`, {
+    routingKey: msg.fields.routingKey,
+    content: msg.content.toString(),
+  });
 }

@@ -1,6 +1,7 @@
 import amqp from 'amqplib';
 import type { Channel, ChannelModel, ConsumeMessage } from 'amqplib';
 import type { Config } from './config';
+import { handleMessage, isShuttingDown } from './utils';
 
 type RabbitMQContext = {
   connection: ChannelModel | null;
@@ -41,10 +42,7 @@ async function setupQueueAndBinding(
   await channel.consume(queueName, (msg: ConsumeMessage | null) => {
     if (!msg) return;
 
-    console.log(`[${queueName}] Received message:`, {
-      routingKey: msg.fields.routingKey,
-      content: msg.content.toString(),
-    });
+    handleMessage(queueName, msg);
 
     // Acknowledge the message
     channel.ack(msg);
@@ -85,7 +83,10 @@ export function createRabbitMQListener(config: Config): RabbitMQListener {
     }
   }
 
-  const reconnect = async (): Promise<void> => {
+  async function reconnect(): Promise<void> {
+    if (isShuttingDown) {
+      return;
+    }
     console.log('Attempting to reconnect...');
     try {
       await connect();
@@ -94,9 +95,9 @@ export function createRabbitMQListener(config: Config): RabbitMQListener {
       // Try again in 5 seconds
       setTimeout(() => reconnect(), 5000);
     }
-  };
+  }
 
-  const setupQueuesAndBindings = async (): Promise<void> => {
+  async function setupQueuesAndBindings(): Promise<void> {
     if (!context.channel) {
       throw new Error('Channel not initialized');
     }
@@ -110,9 +111,9 @@ export function createRabbitMQListener(config: Config): RabbitMQListener {
     await Promise.all(
       topics.map((topic) => setupQueueAndBinding(context.channel!, exchange, topic))
     );
-  };
+  }
 
-  const close = async (): Promise<void> => {
+  async function close(): Promise<void> {
     try {
       if (context.channel) {
         await context.channel.close();
@@ -126,7 +127,7 @@ export function createRabbitMQListener(config: Config): RabbitMQListener {
     } catch (error) {
       console.error('Error closing RabbitMQ connection:', error);
     }
-  };
+  }
 
   return {
     connect,
